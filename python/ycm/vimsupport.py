@@ -685,6 +685,30 @@ def JumpToLocation( filename, line, column, modifiers, command ):
   # Add an entry to the jumplist
   vim.command( "normal! m'" )
 
+  def gettagitem():
+    tag = vim.eval("expand('<cword>')")
+    pos = [ vim.current.buffer.number ] + [
+      int(x) for x in vim.eval("getpos('.')")[1:]
+    ]
+    item = { 'bufnr': pos[0], 'from': pos, 'tagname': tag }
+    return item
+
+  def settagitem(item):
+    vim.command(''.join([
+      "call ",
+      "settagstack(",
+      str(vim.current.window.number),
+      ", { 'items' : [{'bufnr':",
+      str(item['bufnr']),
+      ",'from':",
+      str(item['from']),
+      ",'tagname':",
+      repr(item['tagname']),
+      "}] }, 't')",
+    ]))
+
+  item = gettagitem()
+
   if filename != GetCurrentBufferFilepath():
     # We prefix the command with 'keepjumps' so that opening the file is not
     # recorded in the jumplist. So when we open the file and move the cursor to
@@ -695,8 +719,10 @@ def JumpToLocation( filename, line, column, modifiers, command ):
     if command == 'split-or-existing-window':
       if 'tab' in modifiers:
         if TryJumpLocationInTabs( filename, line, column ):
+          settagitem(item)
           return
       elif TryJumpLocationInTab( vim.current.tabpage, filename, line, column ):
+        settagitem(item)
         return
       command = 'split'
 
@@ -704,6 +730,7 @@ def JumpToLocation( filename, line, column, modifiers, command ):
     # the 'split-or-existing-window' command instead.
     if command == 'new-or-existing-tab':
       if TryJumpLocationInTabs( filename, line, column ):
+        settagitem(item)
         return
       command = 'new-tab'
 
@@ -711,6 +738,8 @@ def JumpToLocation( filename, line, column, modifiers, command ):
       return
 
   vim.current.window.cursor = ( line, column - 1 )
+
+  settagitem(item)
 
   # Open possible folding at location
   vim.command( 'normal! zv' )
